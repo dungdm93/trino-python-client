@@ -15,10 +15,10 @@ from datetime import datetime
 import pytest
 import pytz
 
-import trino
-from conftest import TRINO_VERSION
+import trino.dbapi
 from trino.exceptions import TrinoQueryError
 from trino.transaction import IsolationLevel
+from .conftest import TRINO_VERSION
 
 
 @pytest.fixture
