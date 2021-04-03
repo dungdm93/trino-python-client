@@ -27,7 +27,7 @@ jobs:
           pip install .[tests]
       - name: Run tests
         run: |
-          pytest -s tests/ integration_tests/
+          pytest .
       - name: Run linter
         run: |
           flake8

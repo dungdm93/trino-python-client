@@ -30,7 +30,7 @@ sqlalchemy_require = ["sqlalchemy~=1.3"]
 
 all_require = kerberos_require + sqlalchemy_require
 
-tests_require = all_require + ["httpretty", "pytest", "pytest-runner", "pytz", "flake8"]
+tests_require = all_require + ["httpretty", "pytest", "pytest-runner", "pytz", "flake8", "assertpy"]
 
 setup(
     name="trino",
