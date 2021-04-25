@@ -17,6 +17,6 @@ from . import constants
 from . import exceptions
 from . import logging
 
-__all__ = ['auth', 'dbapi', 'client', 'constants', 'exceptions', 'logging']
+__all__ = ['auth', 'dbapi', 'client', 'constants', 'exceptions', 'logging', 'sqlalchemy']
 
 __version__ = "0.305.0"
