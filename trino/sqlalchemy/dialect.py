@@ -127,16 +127,24 @@ class TrinoDialect(DefaultDialect):
         return []
 
     def get_schema_names(self, connection: Connection, **kw) -> List[str]:
-        query = 'SHOW SCHEMAS'
+        query = dedent('''
+            SELECT "schema_name"
+            FROM "information_schema"."schemata"
+        ''').strip()
         res = connection.execute(sql.text(query))
-        return [row.Schema for row in res]
+        return [row.schema_name for row in res]
 
     def get_table_names(self, connection: Connection, schema: str = None, **kw) -> List[str]:
-        query = 'SHOW TABLES'
-        if schema:
-            query = f'{query} FROM {self.identifier_preparer.quote_identifier(schema)}'
-        res = connection.execute(sql.text(query))
-        return [row.Table for row in res]
+        schema = schema or self._get_default_schema_name(connection)
+        if schema is None:
+            raise exc.NoSuchTableError('schema is required')
+        query = dedent('''
+            SELECT "table_name"
+            FROM "information_schema"."tables"
+            WHERE "table_schema" = :schema
+        ''').strip()
+        res = connection.execute(sql.text(query), schema=schema)
+        return [row.table_name for row in res]
 
     def get_temp_table_names(self, connection: Connection, schema: str = None, **kw) -> List[str]:
         """Trino has no support for temporary tables. Returns an empty list."""
@@ -159,19 +167,17 @@ class TrinoDialect(DefaultDialect):
         return []
 
     def get_view_definition(self, connection: Connection, view_name: str, schema: str = None, **kw) -> str:
-        full_view = self._get_full_table(view_name, schema)
-        query = f'SHOW CREATE VIEW {full_view}'
-        try:
-            res = connection.execute(sql.text(query))
-            return res.scalar()
-        except error.TrinoQueryError as e:
-            if e.error_name in (
-                    error.TABLE_NOT_FOUND,
-                    error.SCHEMA_NOT_FOUND,
-                    error.CATALOG_NOT_FOUND,
-            ):
-                raise exc.NoSuchTableError(full_view) from e
-            raise
+        schema = schema or self._get_default_schema_name(connection)
+        if schema is None:
+            raise exc.NoSuchTableError('schema is required')
+        query = dedent('''
+            SELECT "view_definition"
+            FROM "information_schema"."views"
+            WHERE "table_schema" = :schema
+              AND "table_name" = :view
+        ''').strip()
+        res = connection.execute(sql.text(query), schema=schema, view=view_name)
+        return res.scalar()
 
     def get_indexes(self, connection: Connection,
                     table_name: str, schema: str = None, **kw) -> List[Dict[str, Any]]:
@@ -217,37 +223,27 @@ class TrinoDialect(DefaultDialect):
             raise
 
     def has_schema(self, connection: Connection, schema: str) -> bool:
-        query = f"SHOW SCHEMAS LIKE '{schema}'"
-        try:
-            res = connection.execute(sql.text(query))
-            return res.first() is not None
-        except error.TrinoQueryError as e:
-            if e.error_name in (
-                    error.TABLE_NOT_FOUND,
-                    error.SCHEMA_NOT_FOUND,
-                    error.CATALOG_NOT_FOUND,
-            ):
-                return False
-            raise
+        query = dedent('''
+            SELECT "schema_name"
+            FROM "information_schema"."schemata"
+            WHERE "schema_name" = :schema
+        ''').strip()
+        res = connection.execute(sql.text(query), schema=schema)
+        return res.first() is not None
 
     def has_table(self, connection: Connection,
                   table_name: str, schema: str = None, **kw) -> bool:
-        query = 'SHOW TABLES'
-        if schema:
-            query = f'{query} FROM {self.identifier_preparer.quote_identifier(schema)}'
-        query = f"{query} LIKE '{table_name}'"
-        try:
-            res = connection.execute(sql.text(query))
-            return res.first() is not None
-        except error.TrinoQueryError as e:
-            if e.error_name in (
-                    error.TABLE_NOT_FOUND,
-                    error.SCHEMA_NOT_FOUND,
-                    error.CATALOG_NOT_FOUND,
-                    error.MISSING_SCHEMA_NAME,
-            ):
-                return False
-            raise
+        schema = schema or self._get_default_schema_name(connection)
+        if schema is None:
+            return False
+        query = dedent('''
+            SELECT "table_name"
+            FROM "information_schema"."tables"
+            WHERE "table_schema" = :schema
+              AND "table_name" = :table
+        ''').strip()
+        res = connection.execute(sql.text(query), schema=schema, table=table_name)
+        return res.first() is not None
 
     def has_sequence(self, connection: Connection,
                      sequence_name: str, schema: str = None, **kw) -> bool:
