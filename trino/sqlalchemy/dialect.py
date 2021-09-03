@@ -96,7 +96,8 @@ class TrinoDialect(DefaultDialect):
                 "column_default",
                 UPPER("is_nullable") AS "is_nullable"
             FROM "information_schema"."columns"
-            WHERE "table_schema" = :schema AND "table_name" = :table
+            WHERE "table_schema" = :schema
+              AND "table_name" = :table
             ORDER BY "ordinal_position" ASC
         ''').strip()
         res = connection.execute(sql.text(query), schema=schema, table=table_name)
@@ -208,7 +209,7 @@ class TrinoDialect(DefaultDialect):
 
     def get_table_comment(self, connection: Connection,
                           table_name: str, schema: str = None, **kw) -> Dict[str, Any]:
-        properties_table = self._get_full_table(f"{table_name}$properties", schema)
+        properties_table = self._get_full_table(f'{table_name}$properties', schema)
         query = f'SELECT "comment" FROM {properties_table}'
         try:
             res = connection.execute(sql.text(query))

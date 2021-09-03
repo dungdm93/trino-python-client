@@ -24,6 +24,7 @@ def assert_sqltype(this: SQLType, that: SQLType):
     if isinstance(this, ARRAY):
         assert_sqltype(this.item_type, that.item_type)
         if this.dimensions is None or this.dimensions == 1:
+            # ARRAY(dimensions=None) == ARRAY(dimensions=1)
             assert_that(that.dimensions).is_in(None, 1)
         else:
             assert_that(this.dimensions).is_equal_to(this.dimensions)
