@@ -20,7 +20,7 @@ from sqlalchemy.engine.url import URL
 from trino import dbapi as trino_dbapi
 from trino.auth import BasicAuthentication
 from trino.dbapi import Cursor
-from . import compiler, datatype, error
+from trino.sqlalchemy import compiler, datatype, error
 
 
 class TrinoDialect(DefaultDialect):
@@ -274,16 +274,14 @@ class TrinoDialect(DefaultDialect):
         if dbapi_connection.transaction is not None:
             dbapi_connection.rollback()
 
-    def set_isolation_level(self, dbapi_conn: trino_dbapi.Connection, level) -> None:
-        dbapi_conn._isolation_level = getattr(trino_dbapi.IsolationLevel, level)
+    def set_isolation_level(self, dbapi_conn: trino_dbapi.Connection, level: str) -> None:
+        dbapi_conn._isolation_level = trino_dbapi.IsolationLevel[level]
 
     def get_isolation_level(self, dbapi_conn: trino_dbapi.Connection) -> str:
-        level_names = ['AUTOCOMMIT',
-                       'READ_UNCOMMITTED',
-                       'READ_COMMITTED',
-                       'REPEATABLE_READ',
-                       'SERIALIZABLE']
-        return level_names[dbapi_conn.isolation_level]
+        return dbapi_conn.isolation_level.name
+
+    def get_default_isolation_level(self, dbapi_conn: trino_dbapi.Connection) -> str:
+        return trino_dbapi.IsolationLevel.AUTOCOMMIT.name
 
     def _get_full_table(self, table_name: str, schema: str = None, quote: bool = True) -> str:
         table_part = self.identifier_preparer.quote_identifier(table_name) if quote else table_name

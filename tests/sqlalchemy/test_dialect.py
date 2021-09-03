@@ -1,4 +1,5 @@
 from typing import List, Any, Dict
+from unittest import mock
 
 import pytest
 from assertpy import assert_that
@@ -6,7 +7,9 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.engine.url import URL
 
 from trino.auth import BasicAuthentication
+from trino.dbapi import Connection
 from trino.sqlalchemy.dialect import TrinoDialect
+from trino.transaction import IsolationLevel
 
 
 class TestTrinoDialect:
@@ -32,3 +35,16 @@ class TestTrinoDialect:
 
         assert_that(actual_args).is_equal_to(expected_args)
         assert_that(actual_kwargs).is_equal_to(expected_kwargs)
+
+    def test_get_default_isolation_level(self):
+        isolation_level = self.dialect.get_default_isolation_level(mock.Mock())
+        assert_that(isolation_level).is_equal_to('AUTOCOMMIT')
+
+    def test_isolation_level(self):
+        dbapi_conn = Connection(host="localhost")
+
+        self.dialect.set_isolation_level(dbapi_conn, "SERIALIZABLE")
+        assert_that(dbapi_conn._isolation_level).is_equal_to(IsolationLevel.SERIALIZABLE)
+
+        isolation_level = self.dialect.get_isolation_level(dbapi_conn)
+        assert_that(isolation_level).is_equal_to("SERIALIZABLE")
