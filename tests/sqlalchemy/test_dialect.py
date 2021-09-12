@@ -19,12 +19,12 @@ class TestTrinoDialect:
     @pytest.mark.parametrize(
         'url, expected_args, expected_kwargs',
         [
-            (make_url('trino://localhost'),
-             list(), dict(host='localhost', catalog='system', user='anonymous')),
-            (make_url('trino://1.2.3.4:4321/mysql/sakila'),
-             list(), dict(host='1.2.3.4', port=4321, catalog='mysql', schema='sakila', user='anonymous')),
+            (make_url('trino://user@localhost'),
+             list(), dict(host='localhost', catalog='system', user='user')),
+
             (make_url('trino://user@localhost:8080'),
              list(), dict(host='localhost', port=8080, catalog='system', user='user')),
+
             (make_url('trino://user:pass@localhost:8080'),
              list(), dict(host='localhost', port=8080, catalog='system', user='user',
                           auth=BasicAuthentication('user', 'pass'), http_scheme='https')),
@@ -35,6 +35,18 @@ class TestTrinoDialect:
 
         assert_that(actual_args).is_equal_to(expected_args)
         assert_that(actual_kwargs).is_equal_to(expected_kwargs)
+
+    def test_create_connect_args_missing_user_when_specify_password(self):
+        url = make_url('trino://:pass@localhost')
+        assert_that(self.dialect.create_connect_args).raises(ValueError) \
+            .when_called_with(url) \
+            .is_equal_to('Username is required when specify password in connection URL')
+
+    def test_create_connect_args_wrong_db_format(self):
+        url = make_url('trino://abc@localhost/catalog/schema/foobar')
+        assert_that(self.dialect.create_connect_args).raises(ValueError) \
+            .when_called_with(url) \
+            .is_equal_to('Unexpected database format catalog/schema/foobar')
 
     def test_get_default_isolation_level(self):
         isolation_level = self.dialect.get_default_isolation_level(mock.Mock())

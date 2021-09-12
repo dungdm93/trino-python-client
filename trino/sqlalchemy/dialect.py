@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from textwrap import dedent
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 from sqlalchemy import exc, sql
 from sqlalchemy.engine.base import Connection
@@ -58,10 +58,14 @@ class TrinoDialect(DefaultDialect):
         """
         return trino_dbapi
 
-    def create_connect_args(self, url: URL) -> Tuple[List[Any], Dict[str, Any]]:
-        args, kwargs = super(TrinoDialect, self).create_connect_args(url)  # type: List[Any], Dict[str, Any]
+    def create_connect_args(self, url: URL) -> Tuple[Sequence[Any], Mapping[str, Any]]:
+        args = list()
+        kwargs = dict(host=url.host)
 
-        db_parts = kwargs.pop('database', 'system').split('/')
+        if url.port:
+            kwargs['port'] = url.port
+
+        db_parts = (url.database or 'system').split('/')
         if len(db_parts) == 1:
             kwargs['catalog'] = db_parts[0]
         elif len(db_parts) == 2:
@@ -70,13 +74,14 @@ class TrinoDialect(DefaultDialect):
         else:
             raise ValueError(f'Unexpected database format {url.database}')
 
-        username = kwargs.pop('username', 'anonymous')
-        kwargs['user'] = username
+        if url.username:
+            kwargs['user'] = url.username
 
-        password = kwargs.pop('password', None)
-        if password:
+        if url.password:
+            if not url.username:
+                raise ValueError(f'Username is required when specify password in connection URL')
             kwargs['http_scheme'] = 'https'
-            kwargs['auth'] = BasicAuthentication(username, password)
+            kwargs['auth'] = BasicAuthentication(url.username, url.password)
 
         return args, kwargs
 
